@@ -48,14 +48,47 @@ module Oyatul:ver<0.0.1> {
             %h;
         }
 
+        my class X::BadRole is Exception {
+            has $.role-name;
+            has $.node-name;
+            method message() {
+                "cannot resolve role '{ $!role-name }' specified for node '{ $!node-name }'";
+            }
+        }
+
+        sub get-type(Mu:U $base-type, %h) {
+            my $type = $base-type;
+            if %h<does> -> $role-name {
+                my $role = ::($role-name);
+                if $role ~~ Failure {
+                    CATCH {
+                        default {
+                            X::BadRole.new(:$role-name, node-name => %h<name>).throw;
+                        }
+                    }
+                    require ::($role-name);
+                    $role = ::($role-name);
+                }
+                if ::($role-name) !~~ Failure {
+                    $type = $base-type but $role;
+                }
+                else {
+                   X::BadRole.new(:$role-name, node-name => %h<name>).throw;
+                }
+            }
+            $type;
+        }
+
         method children-from-hash(Parent:D: %h) {
             for %h<children>.list -> $child {
                 my $child-node = do given $child<type> {
                     when 'directory' {
-                        Directory.from-hash(parent => self, $child);
+                        my $type = get-type(Directory,$child);
+                        $type.from-hash(parent => self, $child);
                     }
                     when 'file' {
-                        File.from-hash(parent => self, $child);
+                        my $type = get-type(File, $child);
+                        $type.from-hash(parent => self, $child);
                     }
                     default {
                         die 'DAFUQ!';
@@ -90,8 +123,9 @@ module Oyatul:ver<0.0.1> {
     }
 
     role Node {
-        has Str  $.name;
+        has Str    $.name;
         has Parent $.parent;
+        has Str    $.purpose;
 
         method path-parts() {
             my @parts = $!name;
@@ -192,12 +226,27 @@ module Oyatul:ver<0.0.1> {
             to-json(self.to-hash);
         }
 
-        method from-json(Layout:U: Str $json, Str() :$root) returns Layout {
+        proto method from-json(|c) { * }
+
+        multi method from-json(Layout:U: Str :$path!, |c) returns Layout {
+            self.from-json(path => $path.IO, |c);
+        }
+
+        multi method from-json(Layout:U: IO::Path :$path!, |c) returns Layout {
+            self.from-json($path.slurp, |c);
+        }
+
+
+        multi method from-json(Layout:U: Str $json, Str :$root) returns Layout {
             self.from-hash(from-json($json), :$root);
         }
 
         method path-parts() {
             $!root;
+        }
+
+        method nodes-for-purpose(Str $purpose) {
+            self.all-children.grep({ $_.purpose.defined && $_.purpose eq $purpose });
         }
 
         method create(Str :$root) returns Bool {
