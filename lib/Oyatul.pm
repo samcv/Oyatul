@@ -78,6 +78,15 @@ module Oyatul:ver<0.0.1> {
                 }
             }
         }
+
+        method delete() returns Bool {
+            my @res;
+            for self.children -> $child {
+                @res.append: $child.delete;
+            }
+            @res.append: self.IO.rmdir;
+            so all(@res);
+        }
     }
 
     role Node {
@@ -99,6 +108,14 @@ module Oyatul:ver<0.0.1> {
         method IO() returns IO::Path {
             self.path.IO;
         }
+
+        method create() returns Bool {
+            ...
+        }
+
+        method delete() returns Bool {
+            ...
+        }
     }
 
     class File does Node {
@@ -109,6 +126,14 @@ module Oyatul:ver<0.0.1> {
 
         method from-hash(%h, Parent:D :$parent) {
             self.new(:$parent,|%h);
+        }
+
+        method create() returns Bool {
+            my $fh = self.IO.open(:w);
+            $fh.close;
+        }
+        method delete() returns Bool {
+            self.IO.unlink;
         }
 
     }
@@ -130,6 +155,15 @@ module Oyatul:ver<0.0.1> {
             $dir.children-from-hash(%h);
             $dir;
         }
+
+        method create() returns Bool {
+            my @res = self.IO.mkdir();
+            for self.children -> $child {
+                @res.append: $child.create;
+            }
+            so all(@res);
+        }
+
     }
 
     class Layout does Parent {
@@ -148,8 +182,8 @@ module Oyatul:ver<0.0.1> {
             $layout;
         }
 
-        method from-hash(%h) {
-            my $layout = self.new();
+        method from-hash(%h, :$root) {
+            my $layout = self.new(:$root);
             $layout.children-from-hash(%h);
             $layout;
         }
@@ -158,12 +192,25 @@ module Oyatul:ver<0.0.1> {
             to-json(self.to-hash);
         }
 
-        method from-json(Layout:U: Str $json) returns Layout {
-            self.from-hash(from-json($json));
+        method from-json(Layout:U: Str $json, Str() :$root) returns Layout {
+            self.from-hash(from-json($json), :$root);
         }
 
         method path-parts() {
             $!root;
+        }
+
+        method create(Str :$root) returns Bool {
+            $!root = $root.Str if $root.defined;
+
+            if !$!root.IO.e {
+                $!root.IO.mkdir;
+            }
+            my Bool @res;
+            for self.children -> $child {
+                @res.append: $child.create;
+            }
+            so all(@res);
         }
     }
 }
