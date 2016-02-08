@@ -36,6 +36,10 @@ my $layout2;
 lives-ok { $layout2 = Oyatul::Layout.from-json($json); }, "from-json"; 
 is-deeply $layout2.to-hash, %hash, "and it's the same as the one we made earlier";
 
+for $layout.all-children -> $child {
+    ok $child.IO.e, "path got by all-children '{ $child.path }' exists";
+}
+
 
 
 done-testing;

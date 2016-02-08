@@ -64,11 +64,41 @@ module Oyatul:ver<0.0.1> {
                 self.children.append: $child-node;
             }
         }
+
+        method all-children() {
+            gather {
+                for self.children.list -> $child {
+                    take $child;
+                    if $child ~~ Parent {
+                        for $child.all-children -> $child {
+                            take $child;
+                        }
+                    }
+
+                }
+            }
+        }
     }
 
     role Node {
         has Str  $.name;
         has Parent $.parent;
+
+        method path-parts() {
+            my @parts = $!name;
+            if $!parent.defined {
+                @parts.prepend: $!parent.path-parts;
+            }
+            @parts;
+        }
+
+        method path() returns Str {
+            $*SPEC.catdir(self.path-parts);
+        }
+
+        method IO() returns IO::Path {
+            self.path.IO;
+        }
     }
 
     class File does Node {
@@ -130,6 +160,10 @@ module Oyatul:ver<0.0.1> {
 
         method from-json(Layout:U: Str $json) returns Layout {
             self.from-hash(from-json($json));
+        }
+
+        method path-parts() {
+            $!root;
         }
     }
 }
