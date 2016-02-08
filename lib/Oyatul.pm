@@ -39,13 +39,30 @@ module Oyatul:ver<0.0.1> {
             }
         }
 
-        method as-hash(Parent:D:) {
+        method to-hash(Parent:D:) {
             my %h = type => self.what, children => [];
             %h<name> = self.name if self.can('name');
             for self.children -> $child {
-                %h<children>.push: $child.as-hash;
+                %h<children>.push: $child.to-hash;
             }
             %h;
+        }
+
+        method children-from-hash(Parent:D: %h) {
+            for %h<children>.list -> $child {
+                my $child-node = do given $child<type> {
+                    when 'directory' {
+                        Directory.from-hash(parent => self, $child);
+                    }
+                    when 'file' {
+                        File.from-hash(parent => self, $child);
+                    }
+                    default {
+                        die 'DAFUQ!';
+                    }
+                }
+                self.children.append: $child-node;
+            }
         }
     }
 
@@ -55,9 +72,13 @@ module Oyatul:ver<0.0.1> {
     }
 
     class File does Node {
-        method as-hash(File:D:) {
+        method to-hash(File:D:) {
             my %h = type => 'file', name => $!name;
             %h;
+        }
+
+        method from-hash(%h, Parent:D :$parent) {
+            self.new(:$parent,|%h);
         }
 
     }
@@ -74,6 +95,11 @@ module Oyatul:ver<0.0.1> {
             $dir;
         }
 
+        method from-hash(Directory:U: %h, Parent:D :$parent) {
+            my $dir = self.new(name => %h<name>, :$parent);
+            $dir.children-from-hash(%h);
+            $dir;
+        }
     }
 
     class Layout does Parent {
@@ -92,8 +118,18 @@ module Oyatul:ver<0.0.1> {
             $layout;
         }
 
+        method from-hash(%h) {
+            my $layout = self.new();
+            $layout.children-from-hash(%h);
+            $layout;
+        }
+
         method to-json() {
-            to-json(self.as-hash);
+            to-json(self.to-hash);
+        }
+
+        method from-json(Layout:U: Str $json) returns Layout {
+            self.from-hash(from-json($json));
         }
     }
 }

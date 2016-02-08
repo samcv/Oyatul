@@ -14,7 +14,7 @@ isa-ok $layout, Oyatul::Layout, "and we got the right sort of thing";
 
 my %hash;
 
-lives-ok { %hash = $layout.as-hash }, "get the layout as a hash";
+lives-ok { %hash = $layout.to-hash }, "get the layout as a hash";
 
 for $layout.children -> $child {
     does-ok $child, Oyatul::Node, "and the child '{ $child.name }' is a node";
@@ -26,6 +26,15 @@ for $layout.children -> $child {
         }
     }
 }
+
+my $json;
+
+lives-ok { $json = $layout.to-json() }, "to-json";
+
+my $layout2;
+
+lives-ok { $layout2 = Oyatul::Layout.from-json($json); }, "from-json"; 
+is-deeply $layout2.to-hash, %hash, "and it's the same as the one we made earlier";
 
 
 
