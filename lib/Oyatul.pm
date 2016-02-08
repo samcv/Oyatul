@@ -133,7 +133,7 @@ module Oyatul:ver<0.0.1> {
             $fh.close;
         }
         method delete() returns Bool {
-            self.IO.unlink;
+            so self.IO.unlink;
         }
 
     }
@@ -211,6 +211,10 @@ module Oyatul:ver<0.0.1> {
                 @res.append: $child.create;
             }
             so all(@res);
+        }
+
+        method IO() returns IO::Path {
+            $!root.IO;
         }
     }
 }

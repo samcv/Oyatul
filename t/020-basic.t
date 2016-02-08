@@ -54,5 +54,11 @@ for $layout2.all-children -> $child {
     ok $child.IO.e, "Child with path '{ $child.path }' exist's now";
 }
 
+lives-ok { ok $layout2.delete, "delete" }, "delete doesn't fail";
+
+for $layout2.all-children -> $child {
+    nok $child.IO.e, "Child with path '{ $child.path }' doesn't exist again";
+}
+
 done-testing;
 # vim: expandtab shiftwidth=4 ft=perl6
