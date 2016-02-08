@@ -32,7 +32,18 @@ my $real-view;
 lives-ok { $real-view = $view-template.make-real('by-name') }, "make-real";
 nok $real-view ~~ Oyatul::Template, "and that isn't a Template";
 is $real-view.path, "t/test-root/views/by-name", 'and that has the right path';
+lives-ok { $layout.create }, "create with realised template";
 
+for $layout.all-children(:real) -> $child {
+    nok $child ~~ Oyatul::Template, "not a Template with :real on all-children";
+    ok $child.IO.e, "path got by all-children '{ $child.path }' exists";
+}
+
+lives-ok { ok $layout.delete, "delete" }, "delete (with templates)";
+
+for $layout.all-children(:real) -> $child {
+    nok $child.IO.e, "path got by all-children '{ $child.path }' no longer exists";
+}
 
 done-testing;
 # vim: expandtab shiftwidth=4 ft=perl6

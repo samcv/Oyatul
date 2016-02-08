@@ -29,6 +29,10 @@ module Oyatul:ver<0.0.1> {
             True;
         }
 
+        method delete() {
+            True;
+        }
+
         method make-real(Str $name) {
             my %h = self.to-hash();
             %h<name> = $name;
@@ -116,16 +120,17 @@ module Oyatul:ver<0.0.1> {
             }
         }
 
-        method all-children() {
+        method all-children(Bool :$real) {
             gather {
                 for self.children.list -> $child {
-                    take $child;
-                    if $child ~~ Parent {
-                        for $child.all-children -> $child {
-                            take $child;
+                    unless ( $real && $child ~~ Template) {
+                        take $child;
+                        if $child ~~ Parent {
+                            for $child.all-children(:$real) -> $child {
+                                take $child;
+                            }
                         }
                     }
-
                 }
             }
         }
@@ -268,8 +273,8 @@ module Oyatul:ver<0.0.1> {
             $!root;
         }
 
-        method nodes-for-purpose(Str $purpose) {
-            self.all-children.grep({ $_.purpose.defined && $_.purpose eq $purpose });
+        method nodes-for-purpose(Str $purpose, Bool :$real) {
+            self.all-children(:$real).grep({ $_.purpose.defined && $_.purpose eq $purpose });
         }
 
         method template-for-purpose(Str $purpose) returns Template {
