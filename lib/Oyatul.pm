@@ -24,6 +24,24 @@ module Oyatul:ver<0.0.1> {
     class File { ... }
     class Directory { ... }
 
+    role Template[$real-type] {
+        method create() {
+            True;
+        }
+
+        method make-real(Str $name) {
+            my %h = self.to-hash();
+            %h<name> = $name;
+            my $real = $real-type.from-hash(parent => self.parent, %h);
+            self.parent.children.append: $real;
+            $real;
+        }
+        method is-template() {
+            True;
+        }
+        
+    }
+
     my role Parent {
         has Node @.children;
         method gather-children(IO::Path:D $root) {
@@ -76,7 +94,7 @@ module Oyatul:ver<0.0.1> {
                    X::BadRole.new(:$role-name, node-name => %h<name>).throw;
                 }
             }
-            $type;
+            %h<template> ?? $type but Template[$type] !! $type;
         }
 
         method children-from-hash(Parent:D: %h) {
@@ -135,6 +153,10 @@ module Oyatul:ver<0.0.1> {
             @parts;
         }
 
+        method is-template() {
+            False;
+        }
+
         method path() returns Str {
             $*SPEC.catdir(self.path-parts);
         }
@@ -185,7 +207,8 @@ module Oyatul:ver<0.0.1> {
         }
 
         method from-hash(Directory:U: %h, Parent:D :$parent) {
-            my $dir = self.new(name => %h<name>, :$parent);
+            my %args = %h.pairs.grep({$_.key ~~ any(<name purpose>)}).Hash;
+            my $dir = self.new(|%args, :$parent);
             $dir.children-from-hash(%h);
             $dir;
         }
@@ -247,6 +270,10 @@ module Oyatul:ver<0.0.1> {
 
         method nodes-for-purpose(Str $purpose) {
             self.all-children.grep({ $_.purpose.defined && $_.purpose eq $purpose });
+        }
+
+        method template-for-purpose(Str $purpose) returns Template {
+            self.nodes-for-purpose($purpose).grep(*.is-template).first;
         }
 
         method create(Str :$root) returns Bool {
