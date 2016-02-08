@@ -4,7 +4,23 @@
       {
          "type" : "directory",
          "name" : "views",
-         "children" : []
+         "children" : [
+             {
+                "purpose" : "view",
+                "type"    : "directory",
+                "template" : true,
+                "children" : [
+                   {
+                      "type" : "file",
+                      "name" : "map.js"
+                   },
+                   {
+                      "type" : "file",
+                      "name" : "reduce.js"
+                   }
+                ]
+             }
+         ]
       },
       {
          "type" : "directory",
