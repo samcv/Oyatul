@@ -135,6 +135,14 @@ module Oyatul:ver<0.0.1> {
             }
         }
 
+        method nodes-for-purpose(Str $purpose, Bool :$real) {
+            self.all-children(:$real).grep({ $_.purpose.defined && $_.purpose eq $purpose });
+        }
+
+        method template-for-purpose(Str $purpose) returns Template {
+            self.nodes-for-purpose($purpose).grep(*.is-template).first;
+        }
+
         method delete() returns Bool {
             my @res;
             for self.children -> $child {
@@ -273,13 +281,6 @@ module Oyatul:ver<0.0.1> {
             $!root;
         }
 
-        method nodes-for-purpose(Str $purpose, Bool :$real) {
-            self.all-children(:$real).grep({ $_.purpose.defined && $_.purpose eq $purpose });
-        }
-
-        method template-for-purpose(Str $purpose) returns Template {
-            self.nodes-for-purpose($purpose).grep(*.is-template).first;
-        }
 
         method create(Str :$root) returns Bool {
             $!root = $root.Str if $root.defined;
