@@ -333,10 +333,16 @@ This returns a list of all the instances that were created.
 
 =head2 role Oyatul::Template
 
+    role Oyatul::Template[Mu:U $real-type]
+
 This role is applied to a node in the layout which has a True value
 for the C<template> key, it is a placeholder for any number of 
 named real nodes that may not be known until an instance of the
 layout is applied to the filesystem.
+
+The role is parameterised with the real (original type) of the
+node (i.e. L<Oyatul::File> or L<Oyatul::Directory>) which will
+be used to instantiate the 'real' object with C<make-real>.
 
 =head3 method create
 
@@ -449,6 +455,60 @@ This is an "abstract" method that must be defined by the composing class.
     method accepts-path ($?CLASS: IO::Path:D $ --> Bool)
 
 This is an "abstract" method that must be defined by the composing class.
+
+=head1 DESCRIPTION FORMAT
+
+The layout description will typically be stored as a JSON formatted file,
+but could be stored in any format that can be de-serialised to a similarly
+structured Hash.  Alternatively the description could be stored in any
+medium and the layout objects created individually based on the data.
+
+The top level item should be a Hash (or JSON Object,) with the key C<type>
+with the value 'layout', and C<children> which will be an Array of 
+Objects describing the child nodes.
+
+=head2 NODE KEYS
+
+=head3 name
+
+=head3 type
+
+This is mandatory and must be either C<file> or C<directory> (except at
+the top level where it must be C<layout>.)  If any other value is found
+in traversing the description an exception will be thrown.
+
+If the type is C<file> it will result in a L<Oyatul::File>, if C<directory>
+then L<Oyatul::Directory>.
+
+=head3 purpose
+
+This is an optional key, that can be an arbitrary string, that will be
+matched by C<nodes-for-purpose>.
+
+=head3 children
+
+This is mandatory for nodes of C<type> 'directory' or 'layout' type and
+must be an Array of node objects (or an empty Array,) that represent the
+child objects.
+
+=head3 does
+
+This is optional and if present will be the short name of a role that
+will be required (if it isn't already loaded,) and mixed in to the
+L<Oyatul::Node> that is instantiated from the description. If it 
+cannot be loaded or the name doesn't specify a composable type then
+an exception will be thrown.
+
+The role can supply behaviour that is specific to the application
+or over-ride the methods of L<Oyatul::Node> (e.g. a C<create> that
+will populate a data file in a certain way.)
+
+=head3 template
+
+This is an optional boolean that indicates whether the node is
+a template or not, if it is true then the role L<Oyatul::Template>
+will be applied to the node object when it is being added to the
+layout.
 
 =end pod
 
