@@ -236,6 +236,7 @@ module Oyatul:ver<0.0.1> {
     class File does Node {
         method to-hash(File:D:) {
             my %h = type => 'file', name => $!name;
+            %h<purpose> = self.purpose if self.purpose.defined;
             %h;
         }
 
@@ -326,7 +327,7 @@ module Oyatul:ver<0.0.1> {
         }
 
 
-        multi method from-json(Layout:U: Str $json, Str :$root, Bool :$real) returns Layout {
+        multi method from-json(Layout:U: Str $json, Str :$root = '.', Bool :$real) returns Layout {
             my $layout = self.from-hash(from-json($json), :$root);
             if $real {
                 $layout.realise-templates
