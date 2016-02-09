@@ -37,9 +37,15 @@ my $layout = Oyatul::Layout.from-json($description, root => $*CWD.Str, :real);
 # get the directory that stands in for 'lib'
 my $lib = $layout.nodes-for-purpose('lib').first.path;
 
+my $me = $*PROGRAM.basename;
+
 # get all the instances for 'test' excluding the template
-for $layout.nodes-for-purpose('test', :real) -> $test {
-	run($*EXECUTABLE, '-I', $lib, $test.path, :out, :err);
+for $layout.nodes-for-purpose('test', :real).grep({$_.name ne $me }) -> $test {
+   my $proc = Proc::Async.new($*EXECUTABLE, '-I', $lib, $test.path);
+   $proc.stdout.tap( { Empty });
+   $proc.stderr.tap( { Empty });
+	ok do { await $proc.start }, "run { $test.path }";
+
 }
 }, "the synopsis runs ok";
 
