@@ -20,6 +20,8 @@ use JSON::Tiny;
 
 module Oyatul:ver<0.0.1> {
 
+    my Regex $exclude = /^<-[.]>/;
+
     role Node { ... }
     class File { ... }
     class Directory { ... }
@@ -40,6 +42,22 @@ module Oyatul:ver<0.0.1> {
             self.parent.children.append: $real;
             $real;
         }
+
+        method gather-instances() {
+            my @reals;
+            if self.parent.defined {
+                for self.parent.IO.dir(test => $exclude) -> $node {
+                    if self.accepts-path($node) {
+                        my $name = $node.basename;
+                        if not self.parent.child-by-name($name) {
+                            @reals.append: self.make-real($name);
+                        }
+                    }
+                }
+            }
+            @reals;
+        }
+
         method is-template() {
             True;
         }
@@ -48,8 +66,18 @@ module Oyatul:ver<0.0.1> {
 
     my role Parent {
         has Node @.children;
+
+        has Node %!children-by-name;
+
+        method child-by-name(Str $name ) returns Node {
+            if %!children-by-name.elems != @!children.elems {
+                %!children-by-name = @!children.grep({$_.name.defined }).map({ $_.name => $_ });
+            }
+            %!children-by-name{$name};
+        }
+
         method gather-children(IO::Path:D $root) {
-            for $root.dir(test => /^<-[.]>/) -> $child {
+            for $root.dir(test => $exclude) -> $child {
                 my $node;
                 if $child.d {
                     $node = Directory.generate(root => $child, parent => self);
@@ -64,6 +92,7 @@ module Oyatul:ver<0.0.1> {
         method to-hash(Parent:D:) {
             my %h = type => self.what, children => [];
             %h<name> = self.name if self.can('name');
+            %h<purpose> = self.purpose if self.can('purpose');
             for self.children -> $child {
                 %h<children>.push: $child.to-hash;
             }
@@ -135,12 +164,25 @@ module Oyatul:ver<0.0.1> {
             }
         }
 
+
         method nodes-for-purpose(Str $purpose, Bool :$real) {
             self.all-children(:$real).grep({ $_.purpose.defined && $_.purpose eq $purpose });
         }
 
         method template-for-purpose(Str $purpose) returns Template {
             self.nodes-for-purpose($purpose).grep(*.is-template).first;
+        }
+
+        method all-templates() {
+            self.all-children.grep(Template);
+        }
+
+        method realise-templates() {
+            my @reals;
+            for self.all-templates -> $template {
+                @reals.append: $template.gather-instances;
+            }
+            @reals;
         }
 
         method delete() returns Bool {
@@ -185,6 +227,10 @@ module Oyatul:ver<0.0.1> {
         method delete() returns Bool {
             ...
         }
+
+        method accepts-path(IO::Path:D ) returns Bool {
+            ...
+        }
     }
 
     class File does Node {
@@ -204,6 +250,9 @@ module Oyatul:ver<0.0.1> {
         method delete() returns Bool {
             so self.IO.unlink;
         }
+        method accepts-path(IO::Path:D $path) returns Bool {
+            $path.e && $path.f
+        }
 
     }
 
@@ -220,7 +269,7 @@ module Oyatul:ver<0.0.1> {
         }
 
         method from-hash(Directory:U: %h, Parent:D :$parent) {
-            my %args = %h.pairs.grep({$_.key ~~ any(<name purpose>)}).Hash;
+            my %args = %h.pairs.grep({$_.key ~~ any(<name purpose>) && $_.value.defined}).Hash;
             my $dir = self.new(|%args, :$parent);
             $dir.children-from-hash(%h);
             $dir;
@@ -232,6 +281,10 @@ module Oyatul:ver<0.0.1> {
                 @res.append: $child.create;
             }
             so all(@res);
+        }
+
+        method accepts-path(IO::Path:D $path) returns Bool {
+            $path.e && $path.d
         }
 
     }
@@ -273,8 +326,12 @@ module Oyatul:ver<0.0.1> {
         }
 
 
-        multi method from-json(Layout:U: Str $json, Str :$root) returns Layout {
-            self.from-hash(from-json($json), :$root);
+        multi method from-json(Layout:U: Str $json, Str :$root, Bool :$real) returns Layout {
+            my $layout = self.from-hash(from-json($json), :$root);
+            if $real {
+                $layout.realise-templates
+            }
+            $layout;
         }
 
         method path-parts() {
