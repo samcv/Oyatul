@@ -8,11 +8,447 @@ Oyatul - Abstract representation of filesystem layout
 
 =head1 SYNOPSIS
 
+This runs the tests identified by 'purpose' test which can be in any
+location in the layout with the library directory identified by the
+purpose 'lib' :
+
 =begin code
+
+use Oyatul;
+
+my $description = q:to/LAY/;
+{
+   "type" : "layout",
+   "children" : [
+      {
+         "name" : "t",
+         "purpose" : "tests",
+         "type" : "directory",
+         "children" : [
+            {
+               "type" : "file",
+               "purpose" : "test",
+               "template" : true
+            }
+         ]
+      },
+      {
+         "type" : "directory",
+         "purpose" : "lib",
+         "name" : "lib",
+         "children" : []
+      }
+   ]
+}
+LAY
+
+# the :real adverb causes instance nodes to be inserted
+# for any templates if they exist.
+my $layout = Oyatul::Layout.from-json($description, root => $*CWD.Str, :real);
+
+# get the directory that stands in for 'lib'
+my $lib = $layout.nodes-for-purpose('lib').first.path;
+
+# get all the instances for 'test' excluding the template
+for $layout.nodes-for-purpose('test', :real) -> $test {
+	run($*EXECUTABLE, '-I', $lib, $test.path);
+}
 
 =end code
 
 =head1 DESCRIPTION
+
+This provides a method of describing a filesystem layout in an abstract
+manner.
+
+It can be used in the deployment of applications which might need
+the creation of a directory tree for data or configuration, or for
+applications which may need to locate files and directory that it needs
+but can allow the user to define their own .
+
+The file layout descriptions can be stored as JSON or they can be built
+programmatically (thus allowing other forms of storage.)
+
+The description can define directories and files in an aribitrary tree
+structure, each can optionally define a 'purpose' which can be used to
+locate a node irrespective of its location in the tree and name, a node
+object can also be given a role with the 'does' key which can give the
+node additional behaviours (e.g. create a file of a specific format,
+create an object based on a file or directory etc.) Template nodes can
+be defined which can stand in for real files or directories which can
+be discovered at run-time.
+
+This is based on a design that I used in a large application that relied
+heavily on file storage for its data, but is somewhat more simplified
+and abstracted as well as preferring JSON over the original XML for the
+storage of the layout description. The features are designed to allow
+L<Sofa|https://github.com/jonathanstowe/Sofa> to load a CouchDB design
+document from an arbitrary (possibly user defined) file hierarchy unlike
+C<couchapp> which requires a fixed directory structure. However
+hopefully it will be useful in other applications.
+
+=head2 class Oyatul::Layout
+
+    class Oyatul::Layout does Oyatul::Parent
+
+This is the top level description of the layout.
+
+=head3 method new
+
+    method new(Oyatul::Layout:U: -> Oyatul::Layout);
+
+This is the constructor for the class, typically one would prefer one
+of the C<generate> or C<from-json>, but this may be used if one is
+creating a layout programmatically from some other form of configuration.
+
+=head3 method generate
+
+    method generate (Oyatul::Layout: Str :$root = '.' --> Oyatul::Layout)
+    method generate (Oyatul::Layout: IO::Path:D :$root!)
+
+This will create a new L<Oyatul::Layout> based on the directory structure
+found in C<$root> (which defaults to the current directory,) it will by
+default skip any files or directories who's name begins with '.'
+
+=head3 method from-json
+
+    method from-json (Oyatul::Layout:U: IO::Path :$path!, |c is raw --> Oyatul::Layout)
+    method from-json (Oyatul::Layout:U: Str :$path!, |c is raw --> Oyatul::Layout)
+    method from-json (Oyatul::Layout:U: Str $json, Str :$root = '.', Bool :$real --> Oyatul::Layout)
+
+This returns a new L<Oyatul::Layout> based on the JSON that can be passed as a string, or (with C<path>)
+as the path to a file containing JSON.  If C<root> is supplied this will be the path where the
+layout is anchored (this defaults to the current directory.)  If the C<:real> adverb is supplied 
+any templates found in the layout will have File or Directory instances created for the files or
+directories that are in the position of the template.
+
+The format of the JSON is described below.
+
+=head3 method from-hash
+
+    method from-hash (Oyatul::Layout: %h, :$root)
+
+This returns a new L<Oyatul::Layout> based on a Hash containing data of the same format as the JSON.
+
+=head3 method to-json
+
+    method to-json (Oyatul::Layout:)
+
+This returns a JSON string that describes the layout, it can be round-tripped through C<from-json>,
+but is primarily intended to get a layout discovered by C<generate> which may be edited to suit
+the application.
+
+=head3 method path-parts
+
+    method path-parts (Oyatul::Layout:)
+
+This returns a list containing the value of C<root>, it will be used to create the paths of
+the child nodes.
+
+=head3 method create
+
+    method create (Oyatul::Layout: Str :$root --> Bool)
+
+This causes all the 'real' (i.e. non-template) nodes in the layout to be created starting
+at the top-level by calling the C<create> methods in turn. It returns a Bool to indicate
+whether all the creations were successfull.
+
+=head3 method IO
+
+    method IO (Oyatul::Layout: --> IO::Path)
+
+This returns an L<IO::Path> object for the C<root> of the layout.
+
+=head2 class Oyatul::File
+
+    class Oyatul::File does Oyatul::Node
+
+This represents a 'file' leaf-node in the layout. 
+
+=head3 method to-hash
+
+    method to-hash (Oyatul::File:D:)
+
+Returns a representation of the File object as a Hash, which will be used
+by its parent to get its Hash and eventually that for the whole layout.
+
+=head3 method from-hash
+
+    method from-hash (Oyatul::File: %h, Oyatul::Parent:D :$parent)
+
+Creates a new L<Oyatul::File> object from the supplied Hash, if it is
+to be inserted into a layout then C<parent> should be supplied (this
+will be done by a L<Oyatul::Parent> when it is creating its children
+from a hash using this method.)
+
+=head3 method create
+
+    method create (Oyatul::File: --> Bool)
+
+This will attempt to create an empty file with the name of this L<File>
+in the appropriate location, returning a Bool to indicate whether this
+was successful, if something other than an empty file is to be created
+then this can be over-ridden from a role specified in the C<does> key
+in the layout.
+
+=head3 method delete
+
+    method delete (Oyatul::File: --> Bool)
+
+This will attempt to delete the physical file that this File object
+represents in the layout, returning a Bool indicating success.
+
+=head3 method accepts-path
+
+    method accepts-path (Oyatul::File: IO::Path:D $path --> Bool)
+
+This returns a Bool to indicate whether the supplied L<IO::Path>
+represents a file, it will be called by C<realise-template> with
+the IO::Path object representing a directory entry to determine
+whether it is suitable match for the template.  If some more
+detailed check is required this can be over-ridden in a role
+specified by the C<does> key for the template.
+
+
+=head2 class Oyatul::Directory
+
+    class Oyatul::Directory does Oyatul::Node does Oyatul::Parent
+
+This represents a directory node in the layout, it can have file or
+directory children.
+
+=head3 method generate
+
+    method generate (Oyatul::Directory: IO::Path:D :$root!, Oyatul::Parent :$parent!)
+
+This will return a new L<Oyatul::Directory> with the name of the
+basename of the supplied C<root> and with all the child nodes populated
+iteratively from those found in the filesystem,  C<parent> should be
+either a L<Oyatul::Layout> or another L<Oyatul::Directory>.  This will
+typically be called via the L<Oyatul::Layout> C<generate> method.
+
+=head3 method from-hash
+
+    method from-hash (Oyatul::Directory:U: %h, Oyatul::Parent:D :$parent)
+
+This creates a new L<Oyatul::Directory> based on the supplied Hash.  If
+it is to be inserted into a layout then C<parent> should be supplied, this
+will be done when it is being called via the L<Oyatul::Layout> C<from-hash>.
+
+=head3 method create
+
+    method create (Oyatul::Directory: --> Bool)
+
+This will attempt to create the filesystem structure this directory 
+represents by creating itself (with C<mkdir>) and iteratively calling
+C<create> on all of the children. It returns a Bool indicating
+whether all creation was successful.
+
+=head3 method accepts-path
+
+    method accepts-path (Oyatul::Directory: IO::Path:D $path --> Bool)
+
+This returns a Bool to indicate whether the supplied L<IO::Path>
+represents a directory, it will be called by C<realise-template> with
+the IO::Path object representing a directory entry to determine
+whether it is suitable match for the template.  If some more
+detailed check is required this can be over-ridden in a role
+specified by the C<does> key for the template.
+
+
+=head2 role Oyatul::Parent
+
+This is a role for classes that can contain child objects, typically
+L<Oyatul::Layout> and L<Oyatul::Directory>.
+
+=head3 attribute @.children
+
+    has Oyatul::Node @.children
+
+This is the collection of the child nodes of this object.
+
+=head3 method all-children
+
+    method all-children (Oyatul::Parent: Bool :$real)
+
+This returns a list of all the child objects of the object. If this is
+a Layout object then it will be *all* the nodesi.
+
+=head3 method template-for-purpose
+
+    method template-for-purpose (Oyatul::Parent: Str $purpose --> Oyatul::Template)
+
+This returns the L<Oyatul::Template> that has the specified purpose if one exists.
+
+If more than one template exists for the same purpose then only the first found
+will be returned, this implies that having more than one should be avoided.
+
+=head3 method nodes-for-purpose
+
+    method nodes-for-purpose (Oyatul::Parent: Str $purpose, Bool :$real)
+
+This returns a list of all the L<Oyatul::Node> objects that have the specified
+purpose. If the C<real> adverb is supplied only the non-template nodes are
+returned.
+
+=head3 method gather-children
+
+    method gather-children (Oyatul::Parent: IO::Path:D $root)
+
+This is used by the C<generate> method to discover the nodes in
+the directory tree, returning a list of L<Oyatul::Node> objects
+which will be created by calling C<generate> on them for each
+file or directory in C<$root>
+
+=head3 method child-by-name
+
+    method child-by-name (Oyatul::Parent: Str $name --> Oyatul::Node)
+
+Returns the L<Oyatul::Node> (a L<Oyatul::File> or L<Oyatul::Directory>)
+that has the specified name.
+
+=head3 method delete
+
+    method delete (Oyatul::Parent: --> Bool)
+
+This will attempt to delete the entire tree starting at this node, by
+calling C<delete> on each node depth-first. It returns a Bool indicating
+whether all the deletions were successful.  Care should be taken when
+using this on an existing structure which may be shared with another
+application as whilst it will only attempt to delete those nodes described
+by the layout, it will attempt to delete the C<root> if this is a Layout
+object.
+
+=head3 method realise-templates
+
+    method realise-templates (Oyatul::Parent:)
+
+This will attempt to create 'real' L<Oyatul::Node> objects for all nodes
+that are found in the place of a template in the layout, that is if
+the template is a file and a file is found in the enclosing directory
+then a L<Oyatul::File> with the name of the file will be created and
+inserted into the layout instance.
+
+This returns a list of all the instances that were created.
+
+=head2 role Oyatul::Template
+
+This role is applied to a node in the layout which has a True value
+for the C<template> key, it is a placeholder for any number of 
+named real nodes that may not be known until an instance of the
+layout is applied to the filesystem.
+
+=head3 method create
+
+    method create ($?CLASS:)
+
+A Template cannot actually exist so this is a stub that returns
+true without doing anything.
+
+=head3 method delete
+
+    method delete ($?CLASS:)
+
+A Template cannot actually exist so this is a stub that returns
+true without doing anything.
+
+=head3 method make-real
+
+    method make-real ($?CLASS: Str $name)
+
+This is called on the template object by C<gather-instances> with
+the name of each matching node that is found. It returns a 'real'
+L<Oyatul::Node> (that is one without the Template role,) that has
+been inserted into the layout (i.e added to the C<children> of
+the parent of the Template and C<parent> populated appropriately.
+
+=head3 method gather-instances
+
+    method gather-instances ($?CLASS:)
+
+This will be called by C<realise-templates> for each template in the
+tree. For each filesystem node in the same location as the template
+for which accepts-path returns true, C<make-real> will be called with
+the name of the node.  This returns a list of the 'real' instances that
+were created.
+
+=head3 method is-template
+
+    method is-template ($?CLASS:)
+
+This returns True for any object that does this role.
+
+=head2 role Oyatul::Node
+
+This is role for items in the Layout, (i.e. File, Directory)
+
+=head3 attribute name
+
+    has Str $.name;
+
+This is the basename of the filesystem node in layout, it is
+required for all objects that are not templates.
+
+=head3 attribute parent
+
+    has Oyatul::Parent $.parent;
+
+This is the parent object of the node. This will typically be
+populated by the parent object itself when the object is being
+added to the layout.
+
+=head3 attribute purpose
+
+    has Str $.purpose
+
+This is the 'purpose' as defined by the same named key in the
+layout description.  It is an arbitrary string that will be
+matched by the C<nodes-for-purpose> method of L<Oyatul::Parent>.
+
+=head3 method IO
+
+    method IO (Oyatul::Node: --> IO::Path)
+
+Returns the L<IO::Path> object representing the C<path> in the layout.
+
+=head3 method path
+
+    method path (Oyatul::Node: --> Str)
+
+Returns the full path of the node in the layout, it will be anchored at
+the C<root> of the layout instance.
+
+=head3 method path-parts
+
+    method path-parts (Oyatul::Node:)
+
+This returns a list of the individual parts of the path of the node, the
+first element will be the C<root> of the layout.
+
+=head3 method is-template
+
+    method is-template (Oyatul::Node: --> Bool)
+
+This will return a Bool indicating if this C<Node> is infact a C<Template>
+(that is it does the L<Oyatul::Template> role,)
+
+=head3 method create
+
+    method create ($?CLASS: --> Bool)
+
+This is an "abstract" method that must be defined by the composing class.
+
+=head3 method delete
+
+    method delete ($?CLASS: --> Bool)
+
+This is an "abstract" method that must be defined by the composing class.
+
+=head3 method accepts-path
+
+    method accepts-path ($?CLASS: IO::Path:D $ --> Bool)
+
+This is an "abstract" method that must be defined by the composing class.
 
 =end pod
 
