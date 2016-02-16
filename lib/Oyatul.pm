@@ -606,19 +606,20 @@ module Oyatul:ver<0.0.1> {
         sub get-type(Mu:U $base-type, %h) {
             my $type = $base-type;
             if %h<does> -> $role-name {
-                my $role = ::($role-name);
-                if $role ~~ Failure {
+                my $role;
+                if ::($role-name) ~~ Failure {
                     CATCH {
                         default {
                             say $_;
                             X::BadRole.new(:$role-name, node-name => %h<name>).throw;
                         }
                     }
-                    use MONKEY-SEE-NO-EVAL;
-                    EVAL "require ::('$role-name')";
+                    $role = (require ::("$role-name"));
+                }
+                else {
                     $role = ::($role-name);
                 }
-                if ::($role-name) !~~ Failure {
+                if $role !~~ Failure {
                     $type = $base-type but $role;
                 }
                 else {
