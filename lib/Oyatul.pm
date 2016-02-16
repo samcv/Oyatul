@@ -514,7 +514,7 @@ layout.
 
 use JSON::Tiny;
 
-module Oyatul:ver<0.0.1> {
+module Oyatul:ver<0.0.2>:auth<github:jonathanstowe> {
 
     my Regex $exclude = /^<-[.]>/;
 
