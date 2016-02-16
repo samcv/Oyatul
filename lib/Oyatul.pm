@@ -610,10 +610,12 @@ module Oyatul:ver<0.0.1> {
                 if $role ~~ Failure {
                     CATCH {
                         default {
+                            say $_;
                             X::BadRole.new(:$role-name, node-name => %h<name>).throw;
                         }
                     }
-                    require ::($role-name);
+                    use MONKEY-SEE-NO-EVAL;
+                    EVAL "require ::('$role-name')";
                     $role = ::($role-name);
                 }
                 if ::($role-name) !~~ Failure {
