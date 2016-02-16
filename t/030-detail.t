@@ -11,13 +11,14 @@ use lib $*PROGRAM.parent.child('lib').Str;
 
 my $layout;
 
-lives-ok { $layout = Oyatul::Layout.from-json(path => 't/data/couchapp.layout', root => 't/test-root');  }, "create from file";
+lives-ok { $layout = Oyatul::Layout.from-json(path => 't/data/couchapp.layout', root => 't/test-root'); }, "create from file";
 
 my $id;
 is $layout.root, 't/test-root', "got the root";
 ok $id = $layout.nodes-for-purpose('id').first, 'nodes-for-purpose';
 isa-ok $id, Oyatul::File, "and it is a file";
-does-ok $id, ::('IDRole'), "and it does the role we specified";
+my $role = (require ::('IDRole') );
+does-ok $id, $role, "and it does the role we specified";
 is $id.name, '_id', "and the one we expected";
 
 my $view-template;
