@@ -1,31 +1,34 @@
 {
-	"meta6" : "0",
-   "tags" : [
-      "filesystem",
-      "layout",
-      "util"
-   ],
-   "provides" : {
-      "Oyatul" : "lib/Oyatul.pm"
-   },
-   "test-depends" : [
-      "Test"
-   ],
-   "support" : {
-      "source" : "git://github.com/jonathanstowe/Oyatul.git"
-   },
-   "perl" : "6.c",
-   "build-depends" : [],
-   "auth" : "github:jonathanstowe",
-   "source-url" : "git://github.com/jonathanstowe/Oyatul.git",
-   "depends" : [
-		"JSON::Fast"
-   ],
-   "name" : "Oyatul",
-   "authors" : [
-      "Jonathan Stowe <jns+git@gellyfish.co.uk>"
-   ],
-   "version" : "0.0.4",
-   "license" : "Artistic",
-   "description" : "Abstract representation of a filesystem layout"
+  "name": "Oyatul",
+  "support": {
+    "source": "https://github.com/samcv/Oyatul",
+    "bugtracker": "https://github.com/samcv/Oyatul/issues"
+  },
+  "perl": "6.c",
+  "source-url": "git://github.com/samcv/Oyatul.git",
+  "build-depends": [
+    
+  ],
+  "auth": "github:samcv",
+  "depends": [
+    "JSON::Fast"
+  ],
+  "tags": [
+    "filesystem",
+    "layout",
+    "util"
+  ],
+  "provides": {
+    "Oyatul": "lib/Oyatul.pm"
+  },
+  "test-depends": [
+    "Test"
+  ],
+  "license": "Artistic-2.0",
+  "version": "0.0.4",
+  "meta6": "0",
+  "authors": [
+    "Jonathan Stowe <jns+git@gellyfish.co.uk>"
+  ],
+  "description": "Abstract representation of a filesystem layout"
 }
